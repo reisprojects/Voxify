@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voxify AI</title>
+    <style>
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #1a1a1a;
+    color: #ddd;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    flex-direction: column;
+    background-image: linear-gradient(45deg, #01203f, #004d99);
+}
+
+h1 {
+    color: #1e90ff;
+    font-size: 6em;
+    text-align: center;
+    margin-bottom: 40px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    opacity: 1;
+    transition: opacity 2s ease;
+}
+
+.chat-container {
+    background-color: #222;
+    border-radius: 15px;
+    width: 100%;
+    max-width: 500px;
+    padding: 25px;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    opacity: 0;
+    transform: translateY(-50px);
+    transition: transform 2s ease, opacity 2s ease; /* Added smooth transition */
+}
+
+/* Keyframe animation to center the chat container */
+@keyframes centerChatBox {
+    0% {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.chat-box {
+    flex-grow: 1;
+    overflow-y: auto;
+    margin-bottom: 20px;
+    max-height: 400px;
+    padding-right: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 15px;
+}
+
+.user-msg, .bot-msg {
+    padding: 12px;
+    border-radius: 12px;
+    background-color: #444;
+    max-width: 75%;
+    word-wrap: break-word;
+    font-size: 16px;
+}
+
+.user-msg {
+    background-color: #1e90ff;
+    color: white;
+    align-self: flex-end;
+}
+
+.bot-msg {
+    background-color: #333;
+    color: #fff;
+}
+
+input[type="text"] {
+    padding: 12px 18px;
+    border-radius: 10px;
+    border: 1px solid #555;
+    font-size: 16px;
+    margin-bottom: 15px;
+    background-color: #222;
+    color: #ddd;
+}
+
+input[type="text"]:focus {
+    outline: none;
+    border-color: #1e90ff;
+}
+
+button {
+    padding: 12px;
+    background-color: #1e90ff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #1c7dcd;
+}
+
+@media (max-width: 768px) {
+    h1 {
+        font-size: 4.5em; /* Smaller title for phones */
+        margin-bottom: 30px;
+    }
+    .chat-container {
+        width: 90%;
+        max-width: 400px;
+    }
+    .chat-box {
+        max-height: 350px;
+    }
+    .user-msg, .bot-msg {
+        font-size: 14px; /* Smaller message text */
+    }
+    input[type="text"] {
+        font-size: 14px; /* Smaller input text */
+    }
+    button {
+        font-size: 14px; /* Smaller button text */
+    }
+}
+    </style>
+</head>
+<body>
+    <h1 id="ai-title">Voxify AI</h1>
+    <div class="chat-container" id="chat-container">
+        <div class="chat-box" id="chat-box"></div>
+        <input type="text" id="user-input" placeholder="Ask me anything..." />
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <script>
+        const weatherAPIKey = 'e8194d882e69468ba992f034d2300b7f';
+        const newsAPIKey = '9ee38f648037478eabff8476669b89a8';
+        const googleTranslateAPIKey = 'YOUR_GOOGLE_TRANSLATE_API_KEY';
+        const accessToken = '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';  // Replace this with your actual access token
+
+        function addMessage(message, sender) {
+            const chatBox = document.getElementById('chat-box');
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add(sender === 'user' ? 'user-msg' : 'bot-msg');
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            sender === 'bot' ? typeMessage(message, messageDiv) : messageDiv.innerText = message;
+        }
+
+        function typeMessage(message, element) {
+            let index = 0;
+            const typingSpeed = 10;
+            function typeChar() {
+                if (index < message.length) {
+                    element.innerHTML += message.charAt(index);
+                    index++;
+                    setTimeout(typeChar, typingSpeed);
+                }
+            }
+            typeChar();
+        }
+
+        function getBotResponse(userMessage) {
+            userMessage = userMessage.toLowerCase();
+
+            // Existing predefined responses
+            if (userMessage.includes('hi') || userMessage.includes('hello')) return ["Hello! How can I assist you today?", "I'm here to help with anything you need."];
+            if (userMessage.includes('how are you')) return ["I'm doing great, thank you for asking!", "How about you? How's your day going?"];
+            if (userMessage.includes('bye')) return ["Goodbye!", "Have a great day ahead!"];
+            if (userMessage.includes('weather in')) {
+                const city = userMessage.replace('weather in', '').trim();
+                getWeather(city);
+            }
+            if (userMessage.includes('news about')) {
+                const topic = userMessage.replace('news about', '').trim();
+                getNews(topic);
+            }
+            if (userMessage.includes('tell me a joke') || userMessage.includes('joke')) {
+                getJoke();
+            }
+            if (userMessage.includes('translate')) {
+                const textToTranslate = userMessage.replace('translate', '').trim();
+                translateText(textToTranslate, 'en');
+            }
+            if (userMessage.includes('give me info about')) {
+                const topic = userMessage.replace('give me info about', '').trim();
+                getInfoFromWikipedia(topic);
+            }
+
+            if (userMessage.includes('code') || userMessage.includes('program') || userMessage.includes('write')) {
+                return generateCodeFromAccessToken(userMessage);
+            }
+
+            return generateTextFromAccessToken(userMessage);
+        }
+
+        async function generateTextFromAccessToken(prompt) {
+            const response = await fetch('https://api-inference.huggingface.co/models/gpt2', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    inputs: prompt,
+                    parameters: {
+                        max_length: 150,
+                        num_return_sequences: 1,
+                    },
+                }),
+            });
+
+            const data = await response.json();
+            if (data && data[0] && data[0].generated_text) {
+                return [data[0].generated_text];
+            } else {
+                return ["I'm sorry, I couldn't generate a response."];
+            }
+        }
+
+        async function generateCodeFromAccessToken(prompt) {
+            const response = await fetch('https://api-inference.huggingface.co/models/codegen-350M-mono', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    inputs: prompt,
+                }),
+            });
+
+            const data = await response.json();
+            if (data && data[0] && data[0].generated_text) {
+                return [data[0].generated_text];
+            } else {
+                return ["Sorry, I couldn't generate the code."];
+            }
+        }
+
+        function getWeather(city) {
+            fetch(`http://api.weatherstack.com/current?access_key=${weatherAPIKey}&query=${city}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.current) {
+                        const weatherInfo = `The current temperature in ${city} is ${data.current.temperature}°C with ${data.current.weather_descriptions[0]}.`;
+                        addMessage(weatherInfo, 'bot');
+                    } else {
+                        addMessage("Sorry, I couldn't find the weather for that city.", 'bot');
+                    }
+                })
+                .catch(error => addMessage("Sorry, I couldn't retrieve weather data.", 'bot'));
+        }
+
+        function getNews(topic) {
+            fetch(`https://newsapi.org/v2/everything?q=${topic}&apiKey=${newsAPIKey}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.articles && data.articles.length > 0) {
+                        const newsHeadlines = data.articles.slice(0, 3).map(article => article.title).join("\n");
+                        addMessage(`Here are some news headlines about ${topic}:\n${newsHeadlines}`, 'bot');
+                    } else {
+                        addMessage("Sorry, I couldn't find any news about that topic.", 'bot');
+                    }
+                })
+                .catch(error => addMessage("Sorry, I couldn't retrieve news data.", 'bot'));
+        }
+
+        function getJoke() {
+            fetch('https://official-joke-api.appspot.com/random_joke')
+                .then(response => response.json())
+                .then(data => {
+                    addMessage(`${data.setup} - ${data.punchline}`, 'bot');
+                })
+                .catch(error => addMessage("Sorry, I couldn't retrieve a joke.", 'bot'));
+        }
+
+        function translateText(text, targetLanguage) {
+            fetch(`https://translation.googleapis.com/language/translate/v2?key=${googleTranslateAPIKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    q: text,
+                    target: targetLanguage,
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.data && data.data.translations && data.data.translations[0]) {
+                    addMessage(`Translation: ${data.data.translations[0].translatedText}`, 'bot');
+                } else {
+                    addMessage("Sorry, I couldn't translate that text.", 'bot');
+                }
+            })
+            .catch(error => addMessage("Sorry, I couldn't retrieve the translation.", 'bot'));
+        }
+
+        function getInfoFromWikipedia(query) {
+            fetch(`https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro&explaintext&titles=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    const pages = data.query.pages;
+                    const page = Object.values(pages)[0];
+                    if (page && page.extract) {
+                        addMessage(page.extract, 'bot');
+                    } else {
+                        addMessage("Sorry, I couldn't find any information on that topic.", 'bot');
+                    }
+                })
+                .catch(error => addMessage("Sorry, I couldn't retrieve the information.", 'bot'));
+        }
+
+        function sendMessage() {
+            const userInput = document.getElementById('user-input');
+            const userMessage = userInput.value.trim();
+
+            if (userMessage !== "") {
+                addMessage(userMessage, 'user');
+                const botResponses = getBotResponse(userMessage);
+
+                botResponses.forEach(response => {
+                    setTimeout(() => {
+                        addMessage(response, 'bot');
+                    }, 1000);
+                });
+            }
+
+            userInput.value = '';
+        }
+
+        // Adding the event listener to trigger sendMessage() when the Enter key is pressed
+        document.getElementById('user-input').addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Show the title and chat container with animation
+        window.onload = function () {
+            document.getElementById('chat-container').style.animation = 'centerChatBox 2s ease forwards';
+            document.getElementById('ai-title').style.opacity = '1'; // Fade in title
+        };
+    </script>
+</body>
+</html>
